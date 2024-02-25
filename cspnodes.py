@@ -49,7 +49,7 @@ class Modelscopet2v:
                 "prompt": ("STRING", {}),
                 "negative_prompt": ("STRING", {"default": None}),
                 "num_inference_steps": ("INT", {"default": 40}),
-                "guidance_scale": ("FLOAT", {"default": 7.5}),
+                "guidance_scale": ("FLOAT", {"default": 7.50}),
                 "seed": ("INT", {"default": None}),
                 "height": ("INT", {"default": 320}),
                 "width": ("INT", {"default": 576}),
@@ -101,11 +101,13 @@ class Modelscopev2v:
             "required": {
                 "video_frames": ("IMAGE", {}),
                 "prompt": ("STRING", {}),
-                "strength": ("FLOAT", {"default": 0.6}),
-                "num_inference_steps": ("INT", {"default": 40}),
-                "guidance_scale": ("FLOAT", {"default": 7.5}),
+                "negative_prompt": ("STRING", {"default": None}),
+                "model_path": ("STRING", {"default": "cerspense/zeroscope_v2_XL"}),  
+                "strength": ("FLOAT", {"default": 0.60}),
+                "num_inference_steps": ("INT", {"default": 25}),
+                "guidance_scale": ("FLOAT", {"default": 7.50}),
                 "seed": ("INT", {"default": None}),
-                "enable_forward_chunking": ("BOOLEAN", {"default": True}),
+                "enable_forward_chunking": ("BOOLEAN", {"default": False}),
                 "enable_vae_slicing": ("BOOLEAN", {"default": True}),
             }
         }
@@ -114,14 +116,14 @@ class Modelscopev2v:
     FUNCTION = "transform_video_frames"
     CATEGORY = "cspnodes"
 
-    def transform_video_frames(self, video_frames, prompt, strength, num_inference_steps, guidance_scale, seed, enable_forward_chunking, enable_vae_slicing):
+    def transform_video_frames(self, video_frames, prompt, model_path, strength, num_inference_steps, guidance_scale, negative_prompt, seed, enable_forward_chunking, enable_vae_slicing):
         # Set up the generator for deterministic results if seed is provided
         generator = torch.Generator()
         if seed is not None:
             generator.manual_seed(seed)
 
-        # Initialize the diffusion pipeline
-        pipe = DiffusionPipeline.from_pretrained("cerspense/zeroscope_v2_XL", torch_dtype=torch.float16)
+        # Initialize the diffusion pipeline with the specified model path
+        pipe = DiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
         pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
         pipe.enable_model_cpu_offload()
 
@@ -137,7 +139,7 @@ class Modelscopev2v:
         video = [Image.fromarray(frame.numpy(), 'RGB') for frame in video_frames_uint8]
 
         # Generate new video frames
-        video_frames = pipe(prompt, video=video, strength=strength, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, generator=generator).frames
+        video_frames = pipe(prompt, video=video, strength=strength, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, negative_prompt=negative_prompt, generator=generator).frames
 
         # Print the shape of the video frames to debug
         print(f"Shape of the video frames: {video_frames.shape}")
