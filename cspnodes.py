@@ -94,13 +94,78 @@ class Modelscopet2v:
         # return (video_frames_numpy,)
         return (video_frames,)
 
+class Modelscopev2v:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "video_frames": ("IMAGE", {}),
+                "prompt": ("STRING", {}),
+                "strength": ("FLOAT", {"default": 0.6}),
+                "num_inference_steps": ("INT", {"default": 40}),
+                "guidance_scale": ("FLOAT", {"default": 7.5}),
+                "seed": ("INT", {"default": None}),
+                "enable_forward_chunking": ("BOOLEAN", {"default": True}),
+                "enable_vae_slicing": ("BOOLEAN", {"default": True}),
+            }
+        }
 
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "transform_video_frames"
+    CATEGORY = "cspnodes"
+
+    def transform_video_frames(self, video_frames, prompt, strength, num_inference_steps, guidance_scale, seed, enable_forward_chunking, enable_vae_slicing):
+        # Set up the generator for deterministic results if seed is provided
+        generator = torch.Generator()
+        if seed is not None:
+            generator.manual_seed(seed)
+
+        # Initialize the diffusion pipeline
+        pipe = DiffusionPipeline.from_pretrained("cerspense/zeroscope_v2_XL", torch_dtype=torch.float16)
+        pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+        pipe.enable_model_cpu_offload()
+
+        # Apply memory optimizations based on the toggles
+        if enable_forward_chunking:
+            pipe.unet.enable_forward_chunking(chunk_size=1, dim=1)
+        if enable_vae_slicing:
+            pipe.enable_vae_slicing()
+
+        # Convert tensor to list of PIL Images
+        # Assuming video_frames is a float tensor with values in [0, 1]
+        video_frames_uint8 = (video_frames * 255).byte()
+        video = [Image.fromarray(frame.numpy(), 'RGB') for frame in video_frames_uint8]
+
+        # Generate new video frames
+        video_frames = pipe(prompt, video=video, strength=strength, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, generator=generator).frames
+
+        # Print the shape of the video frames to debug
+        print(f"Shape of the video frames: {video_frames.shape}")
+
+        # Ensure video_frames is a PyTorch tensor
+        if not isinstance(video_frames, torch.Tensor):
+            video_frames = torch.tensor(video_frames, dtype=torch.float32)
+
+        # The expected shape is (num_frames, height, width, channels)
+        video_frames = video_frames.squeeze(0).permute(0, 1, 2, 3)
+
+        # Convert the tensor to CPU and to uint8 if it's not already
+        video_frames = video_frames.to('cpu')
+
+        # Print the shape of the video frames tensor to debug
+        print(f"Shape of the video frames tensor: {video_frames.shape}")
+
+        # return (video_frames_numpy,)
+        return (video_frames,)
+    
 NODE_CLASS_MAPPINGS = {
     "ImageDirIterator": ImageDirIterator,
-    "Modelscopet2v": Modelscopet2v  # Added new node class
+    "Modelscopet2v": Modelscopet2v,
+    "Modelscopev2v": Modelscopev2v,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "ImageDirIterator": "Image Dir Iterator",
-    "Modelscopet2v": "Modelscopet2v"  # Added display name for new node
+    "Modelscopet2v": "Modelscopet2v",
+    "Modelscopev2v": "Modelscopev2v",
 }
