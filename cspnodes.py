@@ -78,13 +78,10 @@ class Modelscopet2v:
         video_frames = video_frames.squeeze(0).permute(0, 1, 2, 3)
 
         # Convert the tensor to CPU and to uint8 if it's not already
-        video_frames = video_frames.to('cpu').mul(255).byte()
+        video_frames = video_frames.to('cpu')
 
         # Print the shape of the video frames tensor to debug
         print(f"Shape of the video frames tensor: {video_frames.shape}")
-
-        # # Convert the tensor to a numpy array
-        # video_frames_numpy = video_frames.numpy()
 
         # return (video_frames_numpy,)
         return (video_frames,)
