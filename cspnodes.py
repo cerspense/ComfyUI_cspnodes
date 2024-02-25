@@ -47,7 +47,9 @@ class Modelscopet2v:
         return {
             "required": {
                 "prompt": ("STRING", {}),
+                "negative_prompt": ("STRING", {"default": None}),
                 "num_inference_steps": ("INT", {"default": 40}),
+                "guidance_scale": ("FLOAT", {"default": 7.5}),
                 "height": ("INT", {"default": 320}),
                 "width": ("INT", {"default": 576}),
                 "num_frames": ("INT", {"default": 24}),
@@ -58,13 +60,13 @@ class Modelscopet2v:
     FUNCTION = "generate_video_frames"
     CATEGORY = "cspnodes"
 
-
-    def generate_video_frames(self, prompt, num_inference_steps, height, width, num_frames):
+    def generate_video_frames(self, prompt, num_inference_steps, height, width, num_frames, guidance_scale, negative_prompt):
         pipe = DiffusionPipeline.from_pretrained("cerspense/zeroscope_v2_576w", torch_dtype=torch.float16)
         pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
         pipe.enable_model_cpu_offload()
 
-        video_frames = pipe(prompt, num_inference_steps=num_inference_steps, height=height, width=width, num_frames=num_frames).frames
+        # Added guidance_scale and negative_prompt to the pipe call
+        video_frames = pipe(prompt, num_inference_steps=num_inference_steps, height=height, width=width, num_frames=num_frames, guidance_scale=guidance_scale, negative_prompt=negative_prompt).frames
         
         # Print the shape of the video frames to debug
         print(f"Shape of the video frames: {video_frames.shape}")
