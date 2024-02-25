@@ -58,6 +58,7 @@ class Modelscopet2v:
     FUNCTION = "generate_video_frames"
     CATEGORY = "cspnodes"
 
+
     def generate_video_frames(self, prompt, num_inference_steps, height, width, num_frames):
         pipe = DiffusionPipeline.from_pretrained("cerspense/zeroscope_v2_576w", torch_dtype=torch.float16)
         pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
@@ -65,8 +66,29 @@ class Modelscopet2v:
 
         video_frames = pipe(prompt, num_inference_steps=num_inference_steps, height=height, width=width, num_frames=num_frames).frames
         
-        # If the frames are already numpy arrays, you can return them directly
+        # Print the shape of the video frames to debug
+        print(f"Shape of the video frames: {video_frames.shape}")
+
+        # Ensure video_frames is a PyTorch tensor
+        if not isinstance(video_frames, torch.Tensor):
+            video_frames = torch.tensor(video_frames, dtype=torch.float32)
+
+        # Remove the unnecessary batch dimension explicitly and permute the dimensions
+        # The expected shape is (num_frames, height, width, channels)
+        video_frames = video_frames.squeeze(0).permute(0, 1, 2, 3)
+
+        # Convert the tensor to CPU and to uint8 if it's not already
+        video_frames = video_frames.to('cpu').mul(255).byte()
+
+        # Print the shape of the video frames tensor to debug
+        print(f"Shape of the video frames tensor: {video_frames.shape}")
+
+        # # Convert the tensor to a numpy array
+        # video_frames_numpy = video_frames.numpy()
+
+        # return (video_frames_numpy,)
         return (video_frames,)
+
 
 NODE_CLASS_MAPPINGS = {
     "ImageDirIterator": ImageDirIterator,
