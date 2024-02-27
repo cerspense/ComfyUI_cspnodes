@@ -51,7 +51,7 @@ class Modelscopet2v:
                 "model_path": ("STRING", {"default": "cerspense/zeroscope_v2_576w"}),
                 "num_inference_steps": ("INT", {"default": 25}),
                 "guidance_scale": ("FLOAT", {"default": 9.0}),
-                "seed": ("INT", {"default": None}),
+                "seed": ("INT", {"default": 42}),
                 "width": ("INT", {"default": 576}),
                 "height": ("INT", {"default": 320}),
                 "num_frames": ("INT", {"default": 24}),
@@ -75,9 +75,6 @@ class Modelscopet2v:
         # Added generator to the pipe call
         video_frames = pipe(prompt, num_inference_steps=num_inference_steps, height=height, width=width, num_frames=num_frames, guidance_scale=guidance_scale, negative_prompt=negative_prompt, generator=generator).frames
         
-        # Print the shape of the video frames to debug
-        print(f"Shape of the video frames: {video_frames.shape}")
-
         # Ensure video_frames is a PyTorch tensor
         if not isinstance(video_frames, torch.Tensor):
             video_frames = torch.tensor(video_frames, dtype=torch.float32)
@@ -88,9 +85,6 @@ class Modelscopet2v:
 
         # Convert the tensor to CPU and to uint8 if it's not already
         video_frames = video_frames.to('cpu')
-
-        # Print the shape of the video frames tensor to debug
-        print(f"Shape of the video frames tensor: {video_frames.shape}")
 
         # return (video_frames_numpy,)
         return (video_frames,)
@@ -107,7 +101,7 @@ class Modelscopev2v:
                 "strength": ("FLOAT", {"default": 0.70}),
                 "num_inference_steps": ("INT", {"default": 25}),
                 "guidance_scale": ("FLOAT", {"default": 8.50}),
-                "seed": ("INT", {"default": None}),
+                "seed": ("INT", {"default": 42}),
                 "enable_forward_chunking": ("BOOLEAN", {"default": False}),
                 "enable_vae_slicing": ("BOOLEAN", {"default": True}),
             }
@@ -142,9 +136,6 @@ class Modelscopev2v:
         # Generate new video frames
         video_frames = pipe(prompt, video=video, strength=strength, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, negative_prompt=negative_prompt, generator=generator).frames
 
-        # Print the shape of the video frames to debug
-        print(f"Shape of the video frames: {video_frames.shape}")
-
         # Ensure video_frames is a PyTorch tensor
         if not isinstance(video_frames, torch.Tensor):
             video_frames = torch.tensor(video_frames, dtype=torch.float32)
@@ -154,9 +145,6 @@ class Modelscopev2v:
 
         # Convert the tensor to CPU and to uint8 if it's not already
         video_frames = video_frames.to('cpu')
-
-        # Print the shape of the video frames tensor to debug
-        print(f"Shape of the video frames tensor: {video_frames.shape}")
 
         # return (video_frames_numpy,)
         return (video_frames,)
