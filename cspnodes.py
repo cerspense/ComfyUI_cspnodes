@@ -15,8 +15,10 @@ class ImageDirIterator:
             }
         }
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("IMAGE", "STRING")
+
     FUNCTION = "get_image_by_index"
+
     CATEGORY = "cspnodes"
 
     def get_image_by_index(self, directory_path, image_index):
@@ -24,8 +26,7 @@ class ImageDirIterator:
         image_files = sorted(
             [os.path.join(directory_path, f) for f in os.listdir(directory_path)
              if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))],
-            key=lambda x: os.path.getmtime(x),
-            reverse=True
+            key=lambda x: os.path.getmtime(x), reverse=True
         )
 
         # Wrap the index around using modulo
@@ -39,7 +40,11 @@ class ImageDirIterator:
         # Convert image to tensor
         image_tensor = torch.from_numpy(np.array(image).astype(np.float32) / 255.0)[None,]
 
-        return (image_tensor,)
+        # Get the filename without extension and remove quotes
+        filename_without_ext = os.path.splitext(os.path.basename(image_files[image_index]))[0]
+        filename_without_ext = filename_without_ext.encode('utf-8').decode('unicode_escape')
+
+        return (image_tensor, filename_without_ext)
 
 
 class VidDirIterator:
