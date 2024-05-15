@@ -5,6 +5,35 @@ from diffusers.utils import export_to_video
 from PIL import Image, ImageOps
 import numpy as np
 
+
+class TextFileLineIterator:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "file_path": ("STRING", {}),
+                "line_index": ("INT", {"default": 0})
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "get_line_by_index"
+    CATEGORY = "cspnodes"
+
+    def get_line_by_index(self, file_path, line_index):
+        # Read all lines from the text file
+        with open(file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+
+        # Wrap the index around using modulo
+        line_index = line_index % len(lines)
+
+        # Get the specified line and strip any surrounding whitespace
+        line = lines[line_index].strip()
+
+        return (line,)
+
+
 class ImageDirIterator:
     @classmethod
     def INPUT_TYPES(cls):
@@ -193,6 +222,7 @@ class Modelscopev2v:
         return (video_frames,)
     
 NODE_CLASS_MAPPINGS = {
+    "TextFileLineIterator": TextFileLineIterator,
     "ImageDirIterator": ImageDirIterator,
     "VidDirIterator": VidDirIterator,
     "Modelscopet2v": Modelscopet2v,
@@ -200,6 +230,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "TextFileLineIterator": "Text File Line Iterator",
     "ImageDirIterator": "Image Dir Iterator",
     "VidDirIterator": "Vid Dir Iterator",
     "Modelscopet2v": "Modelscope t2v",
