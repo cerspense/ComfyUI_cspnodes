@@ -221,7 +221,71 @@ class Modelscopev2v:
         # return (video_frames_numpy,)
         return (video_frames,)
     
+class SplitImageChannels:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE", {}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE")
+    FUNCTION = "split_channels"
+    CATEGORY = "cspnodes"
+
+    def split_channels(self, image):
+        # Split the image into red, green, and blue channels
+        red_channel = image[:, :, :, 0]
+        green_channel = image[:, :, :, 1]
+        blue_channel = image[:, :, :, 2]
+
+        # Convert each channel to a black and white image
+        red_bw = torch.stack([red_channel, red_channel, red_channel], dim=-1)
+        green_bw = torch.stack([green_channel, green_channel, green_channel], dim=-1)
+        blue_bw = torch.stack([blue_channel, blue_channel, blue_channel], dim=-1)
+
+        return red_bw, green_bw, blue_bw
+    
+class RemapRange:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "value": ("FLOAT", {"default": 0.0, "min": -10000.0, "max": 10000.0, "step": 0.01}),
+                "input_min": ("FLOAT", {"default": 0.0, "step": 0.01}),
+                "input_max": ("FLOAT", {"default": 1.0, "step": 0.01}),
+                "output_min": ("FLOAT", {"default": 0.0, "step": 0.01}),
+                "output_max": ("FLOAT", {"default": 1.0, "step": 0.01}),
+                "clamp": ("BOOLEAN", {"default": False}),
+            }
+        }
+
+    RETURN_TYPES = ("FLOAT",)
+    FUNCTION = "remap_value"
+    CATEGORY = "cspnodes"
+
+    def remap_value(self, value, input_min, input_max, output_min, output_max, clamp):
+        # Calculate the input and output ranges
+        input_range = input_max - input_min
+        output_range = output_max - output_min
+        
+        # Perform the remapping
+        if input_range == 0:
+            remapped = output_min
+        else:
+            remapped = ((value - input_min) / input_range) * output_range + output_min
+        
+        # Clamp the output if requested
+        if clamp:
+            remapped = max(min(remapped, output_max), output_min)
+        
+        return (remapped,)
+    
+    
 NODE_CLASS_MAPPINGS = {
+    "SplitImageChannels": SplitImageChannels,
+    "RemapRange": RemapRange,
     "TextFileLineIterator": TextFileLineIterator,
     "ImageDirIterator": ImageDirIterator,
     "VidDirIterator": VidDirIterator,
@@ -230,6 +294,8 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "SplitImageChannels": "Split Image Channels",
+    "RemapRange": "Remap Range",
     "TextFileLineIterator": "Text File Line Iterator",
     "ImageDirIterator": "Image Dir Iterator",
     "VidDirIterator": "Vid Dir Iterator",
