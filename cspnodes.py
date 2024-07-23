@@ -94,7 +94,9 @@ class VidDirIterator:
         return {
             "required": {
                 "directory_path": ("STRING", {}),
-                "video_index": ("INT", {"default": 0})
+                "video_index": ("INT", {"default": 0}),
+                "sort_by": (["date_modified", "name", "size", "random"],),
+                "sort_order": (["ascending", "descending"],),
             }
         }
 
@@ -102,14 +104,24 @@ class VidDirIterator:
     FUNCTION = "get_video_path_by_index"
     CATEGORY = "cspnodes"
 
-    def get_video_path_by_index(self, directory_path, video_index):
-        # Get list of video files sorted by modification time (most recent first)
-        video_files = sorted(
-            [os.path.join(directory_path, f) for f in os.listdir(directory_path)
-             if f.lower().endswith(('.mov', '.mp4'))],
-            key=lambda x: os.path.getmtime(x),
-            reverse=True
-        )
+    def get_video_path_by_index(self, directory_path, video_index, sort_by, sort_order):
+        # Get list of video files
+        video_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path)
+                       if f.lower().endswith(('.mov', '.mp4'))]
+
+        # Define sorting key functions
+        sort_functions = {
+            "date_modified": lambda x: os.path.getmtime(x),
+            "name": lambda x: int(''.join(filter(str.isdigit, os.path.basename(x))) or 0),
+            "size": lambda x: os.path.getsize(x),
+            "random": lambda x: random.random(),
+        }
+
+        # Sort the video files
+        if sort_by == "random":
+            random.shuffle(video_files)
+        else:
+            video_files.sort(key=sort_functions[sort_by], reverse=(sort_order == "descending"))
 
         # Wrap the index around using modulo
         video_index = video_index % len(video_files)
