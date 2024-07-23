@@ -4,6 +4,7 @@ from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
 from diffusers.utils import export_to_video
 from PIL import Image, ImageOps
 import numpy as np
+import random
 
 
 class TextFileLineIterator:
@@ -40,23 +41,34 @@ class ImageDirIterator:
         return {
             "required": {
                 "directory_path": ("STRING", {}),
-                "image_index": ("INT", {"default": 0})
+                "image_index": ("INT", {"default": 0}),
+                "sort_by": (["date_modified", "name", "size", "random"],),
+                "sort_order": (["ascending", "descending"],),
             }
         }
 
     RETURN_TYPES = ("IMAGE", "STRING")
-
     FUNCTION = "get_image_by_index"
-
     CATEGORY = "cspnodes"
 
-    def get_image_by_index(self, directory_path, image_index):
-        # Get list of image files sorted by modification time (most recent first)
-        image_files = sorted(
-            [os.path.join(directory_path, f) for f in os.listdir(directory_path)
-             if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))],
-            key=lambda x: os.path.getmtime(x), reverse=True
-        )
+    def get_image_by_index(self, directory_path, image_index, sort_by, sort_order):
+        # Get list of image files
+        image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path)
+                       if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+
+        # Define sorting key functions
+        sort_functions = {
+            "date_modified": lambda x: os.path.getmtime(x),
+            "name": lambda x: int(''.join(filter(str.isdigit, os.path.basename(x))) or 0),
+            "size": lambda x: os.path.getsize(x),
+            "random": lambda x: random.random(),
+        }
+
+        # Sort the image files
+        if sort_by == "random":
+            random.shuffle(image_files)
+        else:
+            image_files.sort(key=sort_functions[sort_by], reverse=(sort_order == "descending"))
 
         # Wrap the index around using modulo
         image_index = image_index % len(image_files)
