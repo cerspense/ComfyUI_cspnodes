@@ -5,6 +5,7 @@ from diffusers.utils import export_to_video
 from PIL import Image, ImageOps
 import numpy as np
 import random
+import torch.nn.functional as F
 
 
 class TextFileLineIterator:
@@ -44,17 +45,23 @@ class ImageDirIterator:
                 "image_index": ("INT", {"default": 0}),
                 "sort_by": (["date_modified", "name", "size", "random"],),
                 "sort_order": (["ascending", "descending"],),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 64}),
+                "increment_by_batch": ("BOOLEAN", {"default": False}),
             }
         }
 
     RETURN_TYPES = ("IMAGE", "STRING")
-    FUNCTION = "get_image_by_index"
+    FUNCTION = "get_images_by_index"
     CATEGORY = "cspnodes"
+    OUTPUT_IS_LIST = (True, True)
 
-    def get_image_by_index(self, directory_path, image_index, sort_by, sort_order):
+    def get_images_by_index(self, directory_path, image_index, sort_by, sort_order, batch_size, increment_by_batch):
         # Get list of image files
         image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path)
-                       if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+                       if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'))]
+
+        if len(image_files) == 0:
+            raise FileNotFoundError(f"No valid image files found in directory '{directory_path}'.")
 
         # Define sorting key functions
         sort_functions = {
@@ -70,23 +77,31 @@ class ImageDirIterator:
         else:
             image_files.sort(key=sort_functions[sort_by], reverse=(sort_order == "descending"))
 
+        # Calculate the starting index based on the increment_by_batch option
+        start_index = image_index * batch_size if increment_by_batch else image_index
+
         # Wrap the index around using modulo
-        image_index = image_index % len(image_files)
+        start_index = start_index % len(image_files)
 
-        # Load and preprocess the image
-        image = Image.open(image_files[image_index])
-        image = ImageOps.exif_transpose(image)  # Correct orientation
-        image = image.convert("RGB")  # Ensure image is in RGB format
+        # Select the batch of images
+        selected_files = [image_files[(start_index + i) % len(image_files)] for i in range(batch_size)]
 
-        # Convert image to tensor
-        image_tensor = torch.from_numpy(np.array(image).astype(np.float32) / 255.0)[None,]
+        # Load and preprocess the images
+        images = []
+        filenames = []
+        for file in selected_files:
+            i = Image.open(file)
+            i = ImageOps.exif_transpose(i)
+            image = i.convert("RGB")
+            image = np.array(image).astype(np.float32) / 255.0
+            image = torch.from_numpy(image)[None,]
+            images.append(image)
+            
+            filename = os.path.splitext(os.path.basename(file))[0]
+            filename = filename.encode('utf-8').decode('unicode_escape')
+            filenames.append(filename)
 
-        # Get the filename without extension and remove quotes
-        filename_without_ext = os.path.splitext(os.path.basename(image_files[image_index]))[0]
-        filename_without_ext = filename_without_ext.encode('utf-8').decode('unicode_escape')
-
-        return (image_tensor, filename_without_ext)
-
+        return (images, filenames)
 
 class VidDirIterator:
     @classmethod
@@ -305,9 +320,45 @@ class RemapRange:
             remapped = max(min(remapped, output_max), output_min)
         
         return (remapped,)
-    
+
+class ResizeByImage:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "reference_image": ("IMAGE",),
+            },
+            "optional": {
+                "input_image": ("IMAGE",),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "resize_image"
+    CATEGORY = "cspnodes"
+
+    def resize_image(self, reference_image, input_image=None):
+        # Get the dimensions of the reference image
+        _, height, width, _ = reference_image.shape
+
+        if input_image is None:
+            # Create a black image batch if no input is provided
+            resized_image = torch.zeros_like(reference_image)
+        else:
+            # Resize the input image batch to match the reference image dimensions
+            # Convert from (batch, height, width, channels) to (batch, channels, height, width)
+            input_image = input_image.permute(0, 3, 1, 2)
+            
+            # Perform the resize operation on the entire batch
+            resized_image = F.interpolate(input_image, size=(height, width), mode='bilinear', align_corners=False)
+            
+            # Convert back to (batch, height, width, channels)
+            resized_image = resized_image.permute(0, 2, 3, 1)
+
+        return (resized_image,)
     
 NODE_CLASS_MAPPINGS = {
+    "ResizeByImage": ResizeByImage,
     "SplitImageChannels": SplitImageChannels,
     "RemapRange": RemapRange,
     "TextFileLineIterator": TextFileLineIterator,
@@ -318,6 +369,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "ResizeByImage": "Resize By Image",
     "SplitImageChannels": "Split Image Channels",
     "RemapRange": "Remap Range",
     "TextFileLineIterator": "Text File Line Iterator",
