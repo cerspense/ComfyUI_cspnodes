@@ -137,9 +137,11 @@ class VidDirIterator:
         return {
             "required": {
                 "directory_path": ("STRING", {}),
+                "glob_patterns": ("STRING", {"default": "**/*.mp4, **/*.mov"}),
                 "video_index": ("INT", {"default": 0}),
                 "sort_by": (["date_modified", "name", "size", "random"],),
                 "sort_order": (["ascending", "descending"],),
+                "randomize_final_list": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -147,10 +149,19 @@ class VidDirIterator:
     FUNCTION = "get_video_path_by_index"
     CATEGORY = "cspnodes"
 
-    def get_video_path_by_index(self, directory_path, video_index, sort_by, sort_order):
-        # Get list of video files
-        video_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path)
-                       if f.lower().endswith(('.mov', '.mp4'))]
+    def get_video_path_by_index(self, directory_path, glob_patterns, video_index, sort_by, sort_order, randomize_final_list):
+        # Split and clean the glob patterns
+        patterns = [p.strip() for p in glob_patterns.split(',') if p.strip()]
+        
+        # Get list of video files including subdirectories for all patterns
+        video_files = []
+        for pattern in patterns:
+            video_files.extend(glob.glob(os.path.join(directory_path, pattern), recursive=True))
+        
+        video_files = [f for f in video_files if f.lower().endswith(('.mov', '.mp4'))]
+
+        if len(video_files) == 0:
+            raise FileNotFoundError(f"No valid video files found in directory '{directory_path}' with patterns '{glob_patterns}'.")
 
         # Define sorting key functions
         sort_functions = {
@@ -165,6 +176,10 @@ class VidDirIterator:
             random.shuffle(video_files)
         else:
             video_files.sort(key=sort_functions[sort_by], reverse=(sort_order == "descending"))
+
+        # Randomize the entire list if requested
+        if randomize_final_list:
+            random.shuffle(video_files)
 
         # Wrap the index around using modulo
         video_index = video_index % len(video_files)
