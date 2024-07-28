@@ -6,6 +6,7 @@ from PIL import Image, ImageOps
 import numpy as np
 import random
 import torch.nn.functional as F
+import glob
 
 
 class TextFileLineIterator:
@@ -42,11 +43,13 @@ class ImageDirIterator:
         return {
             "required": {
                 "directory_path": ("STRING", {}),
+                "glob_pattern": ("STRING", {"default": "**/*.png"}),
                 "image_index": ("INT", {"default": 0}),
                 "sort_by": (["date_modified", "name", "size", "random"],),
                 "sort_order": (["ascending", "descending"],),
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 64}),
                 "increment_by_batch": ("BOOLEAN", {"default": False}),
+                "randomize_final_list": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -55,13 +58,13 @@ class ImageDirIterator:
     CATEGORY = "cspnodes"
     OUTPUT_IS_LIST = (True, True)
 
-    def get_images_by_index(self, directory_path, image_index, sort_by, sort_order, batch_size, increment_by_batch):
-        # Get list of image files
-        image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path)
-                       if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'))]
+    def get_images_by_index(self, directory_path, glob_pattern, image_index, sort_by, sort_order, batch_size, increment_by_batch, randomize_final_list):
+        # Get list of image files including subdirectories
+        image_files = glob.glob(os.path.join(directory_path, glob_pattern), recursive=True)
+        image_files = [f for f in image_files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'))]
 
         if len(image_files) == 0:
-            raise FileNotFoundError(f"No valid image files found in directory '{directory_path}'.")
+            raise FileNotFoundError(f"No valid image files found in directory '{directory_path}' with pattern '{glob_pattern}'.")
 
         # Define sorting key functions
         sort_functions = {
@@ -71,35 +74,53 @@ class ImageDirIterator:
             "random": lambda x: random.random(),
         }
 
-        # Sort the image files
-        if sort_by == "random":
-            random.shuffle(image_files)
-        else:
-            image_files.sort(key=sort_functions[sort_by], reverse=(sort_order == "descending"))
+        # Group files by subdirectory
+        subdirs = {}
+        for file in image_files:
+            subdir = os.path.dirname(file)
+            if subdir not in subdirs:
+                subdirs[subdir] = []
+            subdirs[subdir].append(file)
+
+        # Sort files within each subdirectory
+        sorted_files = []
+        for subdir, files in subdirs.items():
+            if sort_by == "random":
+                random.shuffle(files)
+            else:
+                files.sort(key=sort_functions[sort_by], reverse=(sort_order == "descending"))
+            sorted_files.extend(files)
+
+        # Randomize the entire list if requested
+        if randomize_final_list:
+            random.shuffle(sorted_files)
 
         # Calculate the starting index based on the increment_by_batch option
         start_index = image_index * batch_size if increment_by_batch else image_index
 
         # Wrap the index around using modulo
-        start_index = start_index % len(image_files)
+        start_index = start_index % len(sorted_files)
 
         # Select the batch of images
-        selected_files = [image_files[(start_index + i) % len(image_files)] for i in range(batch_size)]
+        selected_files = [sorted_files[(start_index + i) % len(sorted_files)] for i in range(batch_size)]
 
         # Load and preprocess the images
         images = []
         filenames = []
         for file in selected_files:
-            i = Image.open(file)
-            i = ImageOps.exif_transpose(i)
-            image = i.convert("RGB")
-            image = np.array(image).astype(np.float32) / 255.0
-            image = torch.from_numpy(image)[None,]
-            images.append(image)
-            
-            filename = os.path.splitext(os.path.basename(file))[0]
-            filename = filename.encode('utf-8').decode('unicode_escape')
-            filenames.append(filename)
+            try:
+                i = Image.open(file)
+                i = ImageOps.exif_transpose(i)
+                image = i.convert("RGB")
+                image = np.array(image).astype(np.float32) / 255.0
+                image = torch.from_numpy(image)[None,]
+                images.append(image)
+                
+                filename = os.path.splitext(os.path.basename(file))[0]
+                filename = filename.encode('utf-8').decode('unicode_escape')
+                filenames.append(filename)
+            except Exception as e:
+                print(f"Error loading image {file}: {str(e)}")
 
         return (images, filenames)
 
