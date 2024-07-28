@@ -1,6 +1,8 @@
 # cspnodes
 A ComfyUI node pack by cerspense
 
+# ComfyUI Custom Nodes
+
 This package contains a collection of custom nodes for ComfyUI, designed to enhance your workflow with additional functionalities. Below is a detailed description of each node and its parameters.
 
 ## Table of Contents
@@ -45,13 +47,15 @@ This node iterates through images in a directory or multiple directories, with v
 
 ## VidDirIterator
 
-This node iterates through video files in a directory.
+This node iterates through video files in a directory or multiple directories, with various sorting and selection options.
 
 ### Parameters:
 - `directory_path` (STRING): Path to the directory containing video files.
+- `glob_patterns` (STRING, default: "**/*.mp4, **/*.mov"): Comma-separated list of glob patterns for selecting files.
 - `video_index` (INT, default: 0): Index of the video to select.
 - `sort_by` (["date_modified", "name", "size", "random"]): Method to sort the videos.
 - `sort_order` (["ascending", "descending"]): Order of sorting.
+- `randomize_final_list` (BOOLEAN, default: False): Whether to randomize the final list of images. This will allow full randomization across all specified folders and files. Otherwise, it will randomize within each folder before moving on to the next.
 
 ### Output:
 - (STRING): Path to the selected video file.
@@ -130,7 +134,3 @@ This node resizes an input image to match the dimensions of a reference image.
 
 ### Output:
 - (IMAGE): Resized image matching the dimensions of the reference image.
-
----
-
-This node pack provides a variety of tools for file iteration, image and video processing, and value manipulation. Each node is designed to integrate seamlessly with ComfyUI workflows, offering enhanced capabilities for your projects.
