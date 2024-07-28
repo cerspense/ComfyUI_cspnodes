@@ -43,7 +43,7 @@ class ImageDirIterator:
         return {
             "required": {
                 "directory_path": ("STRING", {}),
-                "glob_pattern": ("STRING", {"default": "**/*.png"}),
+                "glob_patterns": ("STRING", {"default": "**/*.png, **/*.jpg"}),
                 "image_index": ("INT", {"default": 0}),
                 "sort_by": (["date_modified", "name", "size", "random"],),
                 "sort_order": (["ascending", "descending"],),
@@ -58,13 +58,19 @@ class ImageDirIterator:
     CATEGORY = "cspnodes"
     OUTPUT_IS_LIST = (True, True)
 
-    def get_images_by_index(self, directory_path, glob_pattern, image_index, sort_by, sort_order, batch_size, increment_by_batch, randomize_final_list):
-        # Get list of image files including subdirectories
-        image_files = glob.glob(os.path.join(directory_path, glob_pattern), recursive=True)
+    def get_images_by_index(self, directory_path, glob_patterns, image_index, sort_by, sort_order, batch_size, increment_by_batch, randomize_final_list):
+        # Split and clean the glob patterns
+        patterns = [p.strip() for p in glob_patterns.split(',') if p.strip()]
+        
+        # Get list of image files including subdirectories for all patterns
+        image_files = []
+        for pattern in patterns:
+            image_files.extend(glob.glob(os.path.join(directory_path, pattern), recursive=True))
+        
         image_files = [f for f in image_files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'))]
 
         if len(image_files) == 0:
-            raise FileNotFoundError(f"No valid image files found in directory '{directory_path}' with pattern '{glob_pattern}'.")
+            raise FileNotFoundError(f"No valid image files found in directory '{directory_path}' with patterns '{glob_patterns}'.")
 
         # Define sorting key functions
         sort_functions = {
@@ -123,6 +129,7 @@ class ImageDirIterator:
                 print(f"Error loading image {file}: {str(e)}")
 
         return (images, filenames)
+
 
 class VidDirIterator:
     @classmethod
