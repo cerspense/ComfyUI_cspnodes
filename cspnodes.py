@@ -400,7 +400,27 @@ class ResizeByImage:
 
         return (resized_image,)
     
+class IncrementEveryN:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "input_value": ("INT", {"default": 0, "min": 0, "step": 1}),
+                "step_size": ("INT", {"default": 1, "min": 1, "step": 1}),
+            }
+        }
+
+    RETURN_TYPES = ("INT",)
+    FUNCTION = "increment_every_n"
+    CATEGORY = "cspnodes"
+
+    def increment_every_n(self, input_value, step_size):
+        output_value = input_value // step_size
+        return (output_value,)
+
+    
 NODE_CLASS_MAPPINGS = {
+    "IncrementEveryN": IncrementEveryN,
     "ResizeByImage": ResizeByImage,
     "SplitImageChannels": SplitImageChannels,
     "RemapRange": RemapRange,
@@ -412,6 +432,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "IncrementEveryN": "Increment Every N",
     "ResizeByImage": "Resize By Image",
     "SplitImageChannels": "Split Image Channels",
     "RemapRange": "Remap Range",
