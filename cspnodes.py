@@ -407,6 +407,7 @@ class IncrementEveryN:
             "required": {
                 "input_value": ("INT", {"default": 0, "min": 0, "step": 1}),
                 "step_size": ("INT", {"default": 1, "min": 1, "step": 1}),
+                "offset": ("INT", {"default": 0, "step": 1}),
             }
         }
 
@@ -414,8 +415,8 @@ class IncrementEveryN:
     FUNCTION = "increment_every_n"
     CATEGORY = "cspnodes"
 
-    def increment_every_n(self, input_value, step_size):
-        output_value = input_value // step_size
+    def increment_every_n(self, input_value, step_size, offset):
+        output_value = (input_value // step_size) + offset
         return (output_value,)
 
     
