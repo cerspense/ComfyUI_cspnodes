@@ -162,20 +162,32 @@ This node divides the input value by the step size, adds the offset, and returns
 
 This node is useful for creating slower-changing values from rapidly incrementing inputs, which can be helpful in various animation and procedural generation scenarios. The offset parameter allows for further customization of the output range.
 
+
 ## DepthToNormalMap
 
-This node converts depth maps to normal maps, with options to control intensity and axis flipping.
+This node converts depth maps to normal maps, with options to control intensity, axis flipping, and depth scaling. It's designed to work consistently across different image resolutions.
 
 ### Parameters:
 - `depth_maps` (IMAGE): Input depth map image(s).
-- `normal_intensity` (FLOAT, default: 14.0, range: 0.01 to 100.0): Intensity of the normal map effect. Note that the actual intensity is 10 times this value internally.
+- `normal_intensity` (FLOAT, default: 1.0, range: 0.01 to 10.0): Intensity of the normal map effect. Higher values result in more pronounced normal maps.
 - `flip_x` (BOOLEAN, default: True): Whether to flip the X-axis of the normal map.
-- `flip_y` (BOOLEAN, default: False): Whether to flip the Y-axis of the normal map.
+- `flip_y` (BOOLEAN, default: False): Whether to flip the Y-axis of the normal map. Note that the Y-axis is flipped by default in the conversion process.
+- `depth_scale` (FLOAT, default: 1.0, range: 0.02 to 2.0): Scaling factor for the depth values. Adjust this to match your depth map's range or to enhance subtle details.
 
 ### Output:
 - (IMAGE): The generated normal map(s).
 
 ### Behavior:
-This node takes depth map images as input and converts them to normal maps. The conversion process involves calculating gradients in the X and Y directions, then using these to create a 3D normal vector for each pixel. The `normal_intensity` parameter controls the strength of the effect, with higher values resulting in more pronounced normal maps. The `flip_x` and `flip_y` options allow for adjusting the orientation of the normal map to match different coordinate systems or depth map conventions.
+This node takes depth map images as input and converts them to normal maps using a resolution-independent approach. The conversion process involves calculating gradients using Sobel filters, which provides better edge detection and is less sensitive to noise.
 
-Note that the actual intensity applied is 10 times the input `normal_intensity` value, allowing for a wide range of effect strengths. The node can handle batches of images, processing multiple depth maps in a single operation.
+Key features and notes:
+- The Y-axis of the normal map is flipped by default to match common normal map conventions. Use the `flip_y` option to un-flip it if necessary.
+- The `depth_scale` parameter allows fine-tuning of the depth range. A value of 1.0 is equivalent to a 0.2 scaling in previous versions.
+- The node uses a resolution-independent method, making it suitable for both low and high-resolution images.
+- It can handle batches of images, processing multiple depth maps in a single operation.
+
+Adjusting parameters:
+- Start with `normal_intensity` at 1.0 and adjust as needed. Lower values give subtler normal maps, while higher values enhance details.
+- Use `depth_scale` to adjust the perceived depth range. Increase it for depth maps with a narrow range of values, or decrease it if the depth variation is too extreme.
+- For high-resolution images, lower `normal_intensity` values often work better due to more inherent detail.
+- For low-resolution images, you might need to increase `normal_intensity` to make details more apparent.

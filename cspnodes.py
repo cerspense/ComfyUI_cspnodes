@@ -6,6 +6,7 @@ import numpy as np
 import random
 import torch.nn.functional as F
 import glob
+import math
 
 class TextFileLineIterator:
     @classmethod
@@ -426,9 +427,10 @@ class DepthToNormalMap:
         return {
             "required": {
                 "depth_maps": ("IMAGE",),
-                "normal_intensity": ("FLOAT", {"default": 14.0, "min": 0.01, "max": 100.0, "step": 0.01}),
+                "normal_intensity": ("FLOAT", {"default": 1.0, "min": 0.01, "max": 10.0, "step": 0.01}),
                 "flip_x": ("BOOLEAN", {"default": True}),
-                "flip_y": ("BOOLEAN", {"default": False}),
+                "flip_y": ("BOOLEAN", {"default": False}),  # Changed to False as it's now flipped by default
+                "depth_scale": ("FLOAT", {"default": 1.0, "min": 0.02, "max": 2.0, "step": 0.01}),
             }
         }
 
@@ -436,7 +438,7 @@ class DepthToNormalMap:
     FUNCTION = "convert_depth_to_normal"
     CATEGORY = "cspnodes"
 
-    def convert_depth_to_normal(self, depth_maps, normal_intensity, flip_x, flip_y):
+    def convert_depth_to_normal(self, depth_maps, normal_intensity, flip_x, flip_y, depth_scale):
         # Ensure depth_maps is a float tensor and normalize to [0, 1]
         depth_maps = depth_maps.float()
         if depth_maps.max() > 1.0:
@@ -446,37 +448,43 @@ class DepthToNormalMap:
         if depth_maps.shape[-1] > 1:
             depth_maps = depth_maps[..., 0].unsqueeze(-1)
 
-        # Compute gradients
-        grad_y, grad_x = torch.gradient(depth_maps[..., 0], dim=(1, 2))
+        # Apply depth scale (divided by 5 to make 1.0 equivalent to the previous 0.2)
+        depth_maps = depth_maps * (depth_scale / 5)
+
+        # Calculate pixel size based on image dimensions
+        height, width = depth_maps.shape[1:3]
+        pixel_size_y = 1.0 / height
+        pixel_size_x = 1.0 / width
+
+        # Compute gradients using Sobel filters
+        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32).view(1, 1, 3, 3).to(depth_maps.device)
+        sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32).view(1, 1, 3, 3).to(depth_maps.device)
+
+        grad_x = F.conv2d(depth_maps.permute(0, 3, 1, 2), sobel_x, padding=1) / (8.0 * pixel_size_x)
+        grad_y = F.conv2d(depth_maps.permute(0, 3, 1, 2), sobel_y, padding=1) / (8.0 * pixel_size_y)
 
         # Reshape gradients to match input shape
-        grad_x = grad_x.unsqueeze(-1)
-        grad_y = grad_y.unsqueeze(-1)
+        grad_x = grad_x.permute(0, 2, 3, 1)
+        grad_y = grad_y.permute(0, 2, 3, 1)
 
-        # Apply 10x stronger intensity
-        intensity = normal_intensity * 10
-
-        # Create normal map
-        normal_maps = torch.cat([grad_x * intensity, 
-                                 grad_y * intensity, 
+        # Create normal map (note the flipped Y-axis by default)
+        normal_maps = torch.cat([-grad_x * normal_intensity, 
+                                 grad_y * normal_intensity,  # Removed the negative sign to flip Y by default
                                  torch.ones_like(grad_x)], dim=-1)
 
         # Normalize
         normal_maps = F.normalize(normal_maps, p=2, dim=-1)
 
-        # Flip X axis if requested
+        # Flip axes if requested
         if flip_x:
             normal_maps[..., 0] *= -1
-
-        # Invert Y axis if requested
         if flip_y:
-            normal_maps[..., 1] *= -1
+            normal_maps[..., 1] *= -1  # This will now un-flip the Y-axis if set to True
 
         # Scale to [0, 1] range
         normal_maps = (normal_maps + 1) / 2
 
         return (normal_maps,)
-
     
 NODE_CLASS_MAPPINGS = {
     "DepthToNormalMap": DepthToNormalMap,
