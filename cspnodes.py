@@ -1,13 +1,11 @@
 import os
 import torch
 from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
-from diffusers.utils import export_to_video
 from PIL import Image, ImageOps
 import numpy as np
 import random
 import torch.nn.functional as F
 import glob
-
 
 class TextFileLineIterator:
     @classmethod
@@ -418,9 +416,70 @@ class IncrementEveryN:
     def increment_every_n(self, input_value, step_size, offset):
         output_value = (input_value // step_size) + offset
         return (output_value,)
+    
+import torch
+import torch.nn.functional as F
+
+class DepthToNormalMap:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "depth_maps": ("IMAGE",),
+                "normal_intensity": ("FLOAT", {"default": 14.0, "min": 0.01, "max": 100.0, "step": 0.01}),
+                "flip_x": ("BOOLEAN", {"default": True}),
+                "flip_y": ("BOOLEAN", {"default": False}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "convert_depth_to_normal"
+    CATEGORY = "cspnodes"
+
+    def convert_depth_to_normal(self, depth_maps, normal_intensity, flip_x, flip_y):
+        # Ensure depth_maps is a float tensor and normalize to [0, 1]
+        depth_maps = depth_maps.float()
+        if depth_maps.max() > 1.0:
+            depth_maps = depth_maps / 255.0
+
+        # Extract only the first channel if the input has multiple channels
+        if depth_maps.shape[-1] > 1:
+            depth_maps = depth_maps[..., 0].unsqueeze(-1)
+
+        # Compute gradients
+        grad_y, grad_x = torch.gradient(depth_maps[..., 0], dim=(1, 2))
+
+        # Reshape gradients to match input shape
+        grad_x = grad_x.unsqueeze(-1)
+        grad_y = grad_y.unsqueeze(-1)
+
+        # Apply 10x stronger intensity
+        intensity = normal_intensity * 10
+
+        # Create normal map
+        normal_maps = torch.cat([grad_x * intensity, 
+                                 grad_y * intensity, 
+                                 torch.ones_like(grad_x)], dim=-1)
+
+        # Normalize
+        normal_maps = F.normalize(normal_maps, p=2, dim=-1)
+
+        # Flip X axis if requested
+        if flip_x:
+            normal_maps[..., 0] *= -1
+
+        # Invert Y axis if requested
+        if flip_y:
+            normal_maps[..., 1] *= -1
+
+        # Scale to [0, 1] range
+        normal_maps = (normal_maps + 1) / 2
+
+        return (normal_maps,)
 
     
 NODE_CLASS_MAPPINGS = {
+    "DepthToNormalMap": DepthToNormalMap,
     "IncrementEveryN": IncrementEveryN,
     "ResizeByImage": ResizeByImage,
     "SplitImageChannels": SplitImageChannels,
@@ -433,6 +492,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "DepthToNormalMap": "Depth to Normal Map",
     "IncrementEveryN": "Increment Every N",
     "ResizeByImage": "Resize By Image",
     "SplitImageChannels": "Split Image Channels",

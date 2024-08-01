@@ -14,6 +14,7 @@ This package contains a collection of custom nodes for ComfyUI, designed to enha
 7. [RemapRange](#remaprange)
 8. [ResizeByImage](#resizebyimage)
 9. [IncrementEveryN](#incrementeveryn)
+10. [DepthToNormalMap](#depthtormalmap)
 
 ## TextFileLineIterator
 
@@ -160,3 +161,21 @@ This node divides the input value by the step size, adds the offset, and returns
   - And so on...
 
 This node is useful for creating slower-changing values from rapidly incrementing inputs, which can be helpful in various animation and procedural generation scenarios. The offset parameter allows for further customization of the output range.
+
+## DepthToNormalMap
+
+This node converts depth maps to normal maps, with options to control intensity and axis flipping.
+
+### Parameters:
+- `depth_maps` (IMAGE): Input depth map image(s).
+- `normal_intensity` (FLOAT, default: 14.0, range: 0.01 to 100.0): Intensity of the normal map effect. Note that the actual intensity is 10 times this value internally.
+- `flip_x` (BOOLEAN, default: True): Whether to flip the X-axis of the normal map.
+- `flip_y` (BOOLEAN, default: False): Whether to flip the Y-axis of the normal map.
+
+### Output:
+- (IMAGE): The generated normal map(s).
+
+### Behavior:
+This node takes depth map images as input and converts them to normal maps. The conversion process involves calculating gradients in the X and Y directions, then using these to create a 3D normal vector for each pixel. The `normal_intensity` parameter controls the strength of the effect, with higher values resulting in more pronounced normal maps. The `flip_x` and `flip_y` options allow for adjusting the orientation of the normal map to match different coordinate systems or depth map conventions.
+
+Note that the actual intensity applied is 10 times the input `normal_intensity` value, allowing for a wide range of effect strengths. The node can handle batches of images, processing multiple depth maps in a single operation.
