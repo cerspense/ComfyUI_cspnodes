@@ -52,10 +52,10 @@ class ImageDirIterator:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "STRING")
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING")
     FUNCTION = "get_images_by_index"
     CATEGORY = "cspnodes"
-    OUTPUT_IS_LIST = (True, True)
+    OUTPUT_IS_LIST = (True, True, True)
 
     def get_images_by_index(self, directory_path, glob_patterns, image_index, sort_by, sort_order, batch_size, increment_by_batch, randomize_final_list):
         # Split and clean the glob patterns
@@ -111,23 +111,60 @@ class ImageDirIterator:
 
         # Load and preprocess the images
         images = []
+        masks = []
         filenames = []
+        has_non_empty_mask = False
+
         for file in selected_files:
             try:
                 i = Image.open(file)
                 i = ImageOps.exif_transpose(i)
+                
+                # Handle image
                 image = i.convert("RGB")
                 image = np.array(image).astype(np.float32) / 255.0
                 image = torch.from_numpy(image)[None,]
                 images.append(image)
                 
+                # Handle mask
+                if 'A' in i.getbands():
+                    mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
+                    mask = 1. - torch.from_numpy(mask)
+                    has_non_empty_mask = True
+                else:
+                    mask = torch.zeros((image.shape[1], image.shape[2]), dtype=torch.float32, device="cpu")
+                masks.append(mask)
+                
+                # Handle filename
                 filename = os.path.splitext(os.path.basename(file))[0]
                 filename = filename.encode('utf-8').decode('unicode_escape')
                 filenames.append(filename)
             except Exception as e:
                 print(f"Error loading image {file}: {str(e)}")
 
-        return (images, filenames)
+        if len(images) == 1:
+            return (images, [masks[0]], filenames)
+        elif len(images) > 1:
+            image_batch = torch.cat(images, dim=0)
+            
+            # Process masks
+            if has_non_empty_mask:
+                processed_masks = []
+                for mask in masks:
+                    if image_batch.shape[1:3] != mask.shape:
+                        mask = torch.nn.functional.interpolate(
+                            mask.unsqueeze(0).unsqueeze(0),
+                            size=(image_batch.shape[1], image_batch.shape[2]),
+                            mode='bilinear',
+                            align_corners=False
+                        ).squeeze(0)
+                    processed_masks.append(mask)
+            else:
+                processed_masks = masks
+
+            return (images, processed_masks, filenames)
+
+        return ([], [], [])
 
 
 class VidDirIterator:
