@@ -6,7 +6,58 @@ import numpy as np
 import random
 import torch.nn.functional as F
 import glob
-import math
+from pymediainfo import MediaInfo
+import json
+
+class GetMP4Prompt:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "file_path": ("STRING", {"default": ""}),
+                "search_title": ("STRING", {"default": "finalprompt"})
+            }
+        }
+    
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "extract_prompt"
+    CATEGORY = "metadata"
+    
+    def extract_prompt(self, file_path, search_title):
+        # Validate file path
+        if not os.path.exists(file_path):
+            raise ValueError(f"File not found: {file_path}")
+        
+        if not file_path.lower().endswith('.mp4'):
+            raise ValueError("File must be an MP4")
+            
+        media_info = MediaInfo.parse(file_path)
+        result = "No prompt found"
+        
+        # Look for the comment field in the General track
+        for track in media_info.tracks:
+            if track.track_type == 'General' and hasattr(track, 'comment'):
+                try:
+                    # Parse the JSON string
+                    comment_json = json.loads(track.comment)
+                    
+                    # Parse the prompt string which contains the workflow
+                    if "prompt" in comment_json:
+                        workflow_data = json.loads(comment_json["prompt"])
+                        
+                        # Iterate through all nodes
+                        for node_id, node in workflow_data.items():
+                            if "_meta" in node and "title" in node["_meta"]:
+                                if node["_meta"]["title"] == search_title:
+                                    if "inputs" in node and "text2" in node["inputs"]:
+                                        result = node["inputs"]["text2"]
+                                        break
+                
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Error parsing JSON metadata: {str(e)}")
+                
+        return (result,)
+
 
 class TextFileLineIterator:
     @classmethod
@@ -524,6 +575,7 @@ class DepthToNormalMap:
         return (normal_maps,)
     
 NODE_CLASS_MAPPINGS = {
+    "GetMP4Prompt": GetMP4Prompt,
     "DepthToNormalMap": DepthToNormalMap,
     "IncrementEveryN": IncrementEveryN,
     "ResizeByImage": ResizeByImage,
@@ -537,6 +589,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "GetMP4Prompt": "Get MP4 Prompt",
     "DepthToNormalMap": "Depth to Normal Map",
     "IncrementEveryN": "Increment Every N",
     "ResizeByImage": "Resize By Image",
