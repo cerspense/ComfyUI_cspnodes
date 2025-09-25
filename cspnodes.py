@@ -544,7 +544,30 @@ class DepthToNormalMap:
         normal_maps = (normal_maps + 1) / 2
 
         return (normal_maps,)
-    
+
+class GetLastFrameFromBatch:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "get_last_frame"
+    CATEGORY = "cspnodes"
+
+    def get_last_frame(self, images):
+        # Get the last frame from the batch
+        # images tensor shape is typically (batch_size, height, width, channels)
+        if len(images.shape) == 4 and images.shape[0] > 0:
+            last_frame = images[-1:, :, :, :]  # Keep batch dimension with [-1:] instead of [-1]
+            return (last_frame,)
+        else:
+            # If there's only one frame or invalid input, return the input as-is
+            return (images,)
+
 NODE_CLASS_MAPPINGS = {
     "GetMP4Prompt": GetMP4Prompt,
     "DepthToNormalMap": DepthToNormalMap,
@@ -556,6 +579,7 @@ NODE_CLASS_MAPPINGS = {
     "VidDirIterator": VidDirIterator,
     "Modelscopet2v": Modelscopet2v,
     "Modelscopev2v": Modelscopev2v,
+    "GetLastFrameFromBatch": GetLastFrameFromBatch,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -569,4 +593,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "VidDirIterator": "Vid Dir Iterator",
     "Modelscopet2v": "Modelscope t2v",
     "Modelscopev2v": "Modelscope v2v",
+    "GetLastFrameFromBatch": "Get Last Frame From Batch",
 }
