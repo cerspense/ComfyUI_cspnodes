@@ -568,6 +568,45 @@ class GetLastFrameFromBatch:
             # If there's only one frame or invalid input, return the input as-is
             return (images,)
 
+class CountTextLines:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"default": "", "multiline": True}),
+            }
+        }
+
+    RETURN_TYPES = ("INT",)
+    FUNCTION = "count_lines"
+    CATEGORY = "cspnodes"
+
+    def count_lines(self, text):
+        if not text:
+            return (0,)
+        line_count = len(text.splitlines())
+        return (line_count,)
+
+class RemoveBlankLines:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"default": "", "multiline": True}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "remove_blank_lines"
+    CATEGORY = "cspnodes"
+
+    def remove_blank_lines(self, text):
+        if not text:
+            return ("",)
+        lines = [line for line in text.splitlines() if line.strip()]
+        result = "\n".join(lines)
+        return (result,)
+
 NODE_CLASS_MAPPINGS = {
     "GetMP4Prompt": GetMP4Prompt,
     "DepthToNormalMap": DepthToNormalMap,
@@ -580,6 +619,8 @@ NODE_CLASS_MAPPINGS = {
     "Modelscopet2v": Modelscopet2v,
     "Modelscopev2v": Modelscopev2v,
     "GetLastFrameFromBatch": GetLastFrameFromBatch,
+    "CountTextLines": CountTextLines,
+    "RemoveBlankLines": RemoveBlankLines,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -594,4 +635,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Modelscopet2v": "Modelscope t2v",
     "Modelscopev2v": "Modelscope v2v",
     "GetLastFrameFromBatch": "Get Last Frame From Batch",
+    "CountTextLines": "Count Text Lines",
+    "RemoveBlankLines": "Remove Blank Lines",
 }
