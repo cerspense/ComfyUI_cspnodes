@@ -74,10 +74,10 @@ class ImageDirIterator:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK", "STRING")
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT")
     FUNCTION = "get_images_by_index"
     CATEGORY = "cspnodes"
-    OUTPUT_IS_LIST = (True, True, True)
+    OUTPUT_IS_LIST = (True, True, True, False)
 
     def get_images_by_index(self, directory_path, glob_patterns, image_index, sort_by, sort_order, batch_size, increment_by_batch, randomize_final_list):
         # Split and clean the glob patterns
@@ -164,11 +164,14 @@ class ImageDirIterator:
             except Exception as e:
                 print(f"Error loading image {file}: {str(e)}")
 
+        # Get the total count of files
+        total_count = len(sorted_files)
+
         if len(images) == 1:
-            return (images, [masks[0]], filenames)
+            return (images, [masks[0]], filenames, total_count)
         elif len(images) > 1:
             image_batch = torch.cat(images, dim=0)
-            
+
             # Process masks
             if has_non_empty_mask:
                 processed_masks = []
@@ -184,9 +187,9 @@ class ImageDirIterator:
             else:
                 processed_masks = masks
 
-            return (images, processed_masks, filenames)
+            return (images, processed_masks, filenames, total_count)
 
-        return ([], [], [])
+        return ([], [], [], 0)
 
 
 class VidDirIterator:
