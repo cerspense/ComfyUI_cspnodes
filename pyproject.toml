@@ -1,0 +1,15 @@
+[project]
+name = "comfyui_cspnodes"
+description = "Nodes:Image Dir Iterator, Modelscopet2v, Modelscopev2v."
+version = "1.0.0"
+license = "LICENSE"
+dependencies = ["diffusers"]
+
+[project.urls]
+Repository = "https://github.com/cerspense/ComfyUI_cspnodes"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI_cspnodes"
+Icon = ""
