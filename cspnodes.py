@@ -1,5 +1,8 @@
 import os
 import torch
+import huggingface_hub
+if not hasattr(huggingface_hub, "cached_download"):
+    huggingface_hub.cached_download = huggingface_hub.hf_hub_download
 from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
 from PIL import Image, ImageOps
 import numpy as np
